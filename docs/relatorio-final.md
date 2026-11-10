@@ -1,6 +1,4 @@
-# Relatório final — desempenho da API Claude
-
-**Estado:** experimentos executados e analisados. Fonte dos dados: [`data/measurements.csv`](../data/measurements.csv). Análise reproduzível em [`scripts/analysis.ipynb`](../scripts/analysis.ipynb). Desenho em [`docs/plano-estudo.md`](plano-estudo.md).
+# Relatório final - Desempenho da API Claude
 
 Este relatório consolida os parâmetros ajustados e a validação experimental do estudo que observa a API de mensagens da Anthropic (`POST /v1/messages`) como caixa-preta, medindo latência, TTFT e vazão efetiva de saída em três modelos da família Claude 5.5 sob requisições sequenciais com resposta curta.
 
@@ -45,7 +43,7 @@ Latência média e vazão efetiva média por modelo e tamanho (5 repetições ca
 
 - **Haiku** é praticamente insensível a $n$: a latência varia apenas ~38 ms entre 458 e 6.878 tokens (0,821 s → 0,859 s) e a vazão permanece estável (8,63 → 8,21 tok/s). A variação aleatória de rede/fila (DP ≈ 0,08–0,12 s) domina qualquer efeito de $n$.
 - **Sonnet** e **Opus** mostram forte crescimento do *prefill* com $n$: a latência sobe de 0,928 s → 1,254 s (Sonnet) e de 1,037 s → 2,036 s (Opus), reduzindo a vazão efetiva para 5,59 e 3,47 tok/s, respectivamente, no prompt longo.
-- O DP elevado do Opus no prompt longo (0,2202 s) decorre de um pico isolado na 5ª repetição (2,417 s vs. ~1,94 s nas demais) — analisado na Seção 6.
+- O DP elevado do Opus no prompt longo (0,2202 s) decorre de um pico isolado na 5ª repetição (2,417 s vs. ~1,94 s nas demais), analisado na Seção 6.
 
 ## 4. Modelo analítico ajustado
 
@@ -60,7 +58,7 @@ Ajuste OLS de $L(n) = \alpha + \beta n$ sobre as 10 repetições de treino (curt
 **Interpretação dos parâmetros:**
 
 - $\beta$ cresce ~26× do Haiku ao Opus (5,88 → 155,60 µs/token), quantificando o custo marginal de *prefill* por token de entrada e separando nitidamente as três classes de modelo.
-- No **Haiku**, $R^2 = 0,046$: a inclinação $\beta n$ é tão pequena que o ruído de rede/fila ($D_{\max} = \pm175$ ms) domina o sinal. O modelo linear tem pouco poder explicativo aqui — não por má especificação, mas porque **não há dependência prática de $n$** nesse regime.
+- No **Haiku**, $R^2 = 0,046$: a inclinação $\beta n$ é tão pequena que o ruído de rede/fila ($D_{\max} = \pm175$ ms) domina o sinal. O modelo linear tem pouco poder explicativo aqui, não por má especificação, mas porque **não há dependência prática de $n$** nesse regime.
 - No **Sonnet** ($R^2 = 0,977$) e no **Opus** ($R^2 = 0,920$), a reta captura bem a tendência: o *prefill* é o fator dominante da latência.
 
 ## 5. Validação no ponto de interpolação (`medio`, $n = 1.742$)
@@ -76,7 +74,7 @@ Previsão $\hat{L}(1.742) = \alpha + 1.742\,\beta$ confrontada com a média das 
 **Observações:**
 
 - Os erros ficam entre −6% e +11,5%, considerando que o modelo foi ajustado **sem jamais ver** o ponto médio.
-- Em Sonnet e Opus a reta **superestima** o ponto intermediário: o *prefill* entre 458 e 1.742 tokens aproveita melhor o paralelismo do hardware remoto do que na faixa estendida até 6.878 tokens. Isto é, a latência real cresce de forma **sublinear/côncava** em $n$, enquanto a reta ajustada nos extremos impõe inclinação única — viés esperado e coerente com a sublinearidade do *prefill* em GPU mencionada no plano.
+- Em Sonnet e Opus a reta **superestima** o ponto intermediário: o *prefill* entre 458 e 1.742 tokens aproveita melhor o paralelismo do hardware remoto do que na faixa estendida até 6.878 tokens. Isto é, a latência real cresce de forma **sublinear/côncava** em $n$, enquanto a reta ajustada nos extremos impõe inclinação única, viés esperado e coerente com a sublinearidade do *prefill* em GPU mencionada no plano.
 - A cobertura da faixa $\pm D_{\max}/1000$ é ilustrativa, não probabilística. No Opus a faixa é larga (±381 ms) e cobre 5/5; no Sonnet é estreita (±51 ms) e cobre 3/5.
 
 ## 6. Ordem de execução e sensibilidade a outlier
@@ -108,7 +106,7 @@ O custo total do estudo foi de **US$ 0,41**. O gasto é dominado pelos tokens de
 ## 8. Conclusões
 
 1. **Efeito de $n$ e do porte do modelo.** A latência é governada quase integralmente pelo TTFT. O custo marginal por token de entrada ($\beta$) separa as três classes em escala de ~26×: Haiku é praticamente plano (5,88 µs/token), enquanto Sonnet (50,76) e Opus (155,60) têm latência fortemente crescente em $n$, com queda proporcional da vazão efetiva.
-2. **Precisão do modelo analítico.** Ajustada apenas nos extremos, a reta prevê o ponto médio com erro de −6,01% (Haiku), +5,58% (Sonnet) e +11,52% (Opus). Em Sonnet e Opus há superestimação sistemática do ponto intermediário, indicando crescimento sublinear/côncavo do *prefill* em $n$ — um viés estrutural de um modelo linear de dois pontos, não um artefato de outlier.
+2. **Precisão do modelo analítico.** Ajustada apenas nos extremos, a reta prevê o ponto médio com erro de −6,01% (Haiku), +5,58% (Sonnet) e +11,52% (Opus). Em Sonnet e Opus há superestimação sistemática do ponto intermediário, indicando crescimento sublinear/côncavo do *prefill* em $n$, um viés estrutural de um modelo linear de dois pontos, não um artefato de outlier.
 3. **Regimes distintos de variabilidade.** No Haiku a variação aleatória ($D_{\max} = \pm175$ ms) domina a inclinação ($R^2 = 0,046$); em Sonnet e Opus a inclinação domina o ruído ($R^2 = 0,98$ e $0,92$).
 
 ## 9. Limitações
